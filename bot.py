@@ -3,7 +3,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from twikit import Client
 
 WEBHOOK_URL = "https://discord.com/api/webhooks/1555668009085837454/n4MSvBnRQOq5RuzsItVaPp4sPKtq0NtkTNO6NYN8d2KDQ9W3-qasSu2_zkPz-IyjkR7J"
-TARGET_HANDLE = CoCVouchers
+TARGET_HANDLE = "CoCVouchers"
 
 # Dummy web server to satisfy Render's free Web Service requirements
 class HealthCheckHandler(BaseHTTPRequestHandler):
