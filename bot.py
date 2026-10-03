@@ -1,10 +1,14 @@
-import asyncio, requests, threading, sys
+import asyncio, requests, threading
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from twikit import Client
 
 WEBHOOK_URL = "https://discord.com/api/webhooks/1555668009085837454/n4MSvBnRQOq5RuzsItVaPp4sPKtq0NtkTNO6NYN8d2KDQ9W3-qasSu2_zkPz-IyjkR7J"
-TARGET_HANDLE = "IGN"  # Currently set to IGN for testing
+TARGET_HANDLE = "IGN"  # Change back to CoCVouchers once verified
+
+# PASTE YOUR COOKIES HERE
+AUTH_TOKEN = 5a8c282b8daf3eef378fb05fccd1d7a07697c06a
+CT0 = 636bceb706e145e913aa85fc0b6fa24680707faa65e327bfb4f958c604434f2c93b7915e9186bbfd67bd9771a1d4cd1f7fbcddfa4d345f24a295bf5a61eb62e3a964065e9b73bf64d6d09c131849561f
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def handle_http(self):
@@ -24,7 +28,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.handle_http()
 
     def log_message(self, format, *args):
-        return  # Suppress health check spam in logs
+        return
 
 def run_web_server():
     server = HTTPServer(('0.0.0.0', 10000), HealthCheckHandler)
@@ -36,7 +40,14 @@ client = Client('en-US')
 seen_tweet_ids = set()
 
 async def main():
-    print(f"[{datetime.now()}] Bot starting up...", flush=True)
+    print(f"[{datetime.now()}] Bot starting up with cookie auth...", flush=True)
+    
+    # Authenticate client with cookies
+    client.set_cookies({
+        'auth_token': AUTH_TOKEN,
+        'ct0': CT0
+    })
+
     user_id = None
     
     while True:
