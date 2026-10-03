@@ -1,9 +1,9 @@
 import os, time, requests, threading, feedparser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-WEBHOOK_URL = os.environ["WEBHOOK_URL"]  # set this in Render's Environment tab
+WEBHOOK_URL = os.environ["WEBHOOK_URL"]  # set in Render's Environment tab
 RSS_FEED_URL = "https://rss.app/feeds/dfDZVniCUL6gsKXM.xml"
-TARGET_HANDLE = "IGN"  # must match the account the feed is for
+TARGET_HANDLE = "IGN"  # change to CoCVouchers when you switch feeds
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -32,23 +32,21 @@ def main():
     while True:
         try:
             print(f"Checking feed for @{TARGET_HANDLE}...", flush=True)
-            feed = feedparser.parse(RSS_FEED_URL)
+            resp = requests.get(RSS_FEED_URL, timeout=15)
+            feed = feedparser.parse(resp.content)
+            print(f"Fetched {len(feed.entries)} entries (HTTP {resp.status_code})", flush=True)
 
-            if not feed.entries:
-                print("No entries found. Status:", getattr(feed, "status", "n/a"),
-                      "| Error:", feed.get("bozo_exception"), flush=True)
-            else:
-                # oldest first so tweets post in order
-                for entry in reversed(feed.entries):
-                    tweet_id = entry.link.split("/")[-1].split("?")[0]
-                    if tweet_id in seen:
-                        continue
-                    seen.add(tweet_id)
-                    if not first_run:
-                        url = f"https://x.com/{TARGET_HANDLE}/status/{tweet_id}"
-                        print("Posting:", url, flush=True)
-                        requests.post(WEBHOOK_URL, json={"content": url}, timeout=10)
-                first_run = False
+            # oldest first so tweets post in order
+            for entry in reversed(feed.entries):
+                tweet_id = entry.link.split("/")[-1].split("?")[0]
+                if tweet_id in seen:
+                    continue
+                seen.add(tweet_id)
+                if not first_run:
+                    url = f"https://x.com/{TARGET_HANDLE}/status/{tweet_id}"
+                    print("Posting:", url, flush=True)
+                    requests.post(WEBHOOK_URL, json={"content": url}, timeout=10)
+            first_run = False
 
         except Exception as e:
             print(f"Error: {e}", flush=True)
