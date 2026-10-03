@@ -7,8 +7,8 @@ WEBHOOK_URL = "https://discord.com/api/webhooks/1555668009085837454/n4MSvBnRQOq5
 TARGET_HANDLE = "IGN"  # Change back to CoCVouchers once verified
 
 # PASTE YOUR COOKIES HERE
-AUTH_TOKEN = 5a8c282b8daf3eef378fb05fccd1d7a07697c06a
-CT0 = 636bceb706e145e913aa85fc0b6fa24680707faa65e327bfb4f958c604434f2c93b7915e9186bbfd67bd9771a1d4cd1f7fbcddfa4d345f24a295bf5a61eb62e3a964065e9b73bf64d6d09c131849561f
+AUTH_TOKEN = "5a8c282b8daf3eef378fb05fccd1d7a07697c06a"
+CT0 = "636bceb706e145e913aa85fc0b6fa24680707faa65e327bfb4f958c604434f2c93b7915e9186bbfd67bd9771a1d4cd1f7fbcddfa4d345f24a295bf5a61eb62e3a964065e9b73bf64d6d09c131849561f"
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def handle_http(self):
