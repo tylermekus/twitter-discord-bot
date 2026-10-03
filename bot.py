@@ -1,11 +1,9 @@
-import time, requests, threading, feedparser
+import os, time, requests, threading, feedparser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-WEBHOOK_URL = "https://discord.com/api/webhooks/1555668009085837454/n4MSvBnRQOq5RuzsItVaPp4sPKtq0NtkTNO6NYN8d2KDQ9W3-qasSu2_zkPz-IyjkR7J"
-TARGET_HANDLE = "IGN"
-
-# PASTE YOUR GENERATED RSS FEED URL HERE
-RSS_FEED_URL = "https://rss.app/feeds/YOUR_FEED_ID.xml"
+WEBHOOK_URL = os.environ["WEBHOOK_URL"]  # set this in Render's Environment tab
+RSS_FEED_URL = "https://rss.app/feeds/dfDZVniCUL6gsKXM.xml"
+TARGET_HANDLE = "IGN"  # must match the account the feed is for
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -21,39 +19,40 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         return
 
 def run_web_server():
-    server = HTTPServer(('0.0.0.0', 10000), HealthCheckHandler)
-    server.serve_forever()
+    port = int(os.environ.get("PORT", 10000))
+    HTTPServer(("0.0.0.0", port), HealthCheckHandler).serve_forever()
 
 threading.Thread(target=run_web_server, daemon=True).start()
 
-seen_tweet_ids = set()
+seen = set()
+first_run = True
 
 def main():
-    print("https://rss.app/feeds/dfDZVniCUL6gsKXM.xml", flush=True)
-    
+    global first_run
     while True:
         try:
-            print(f"Checking RSS feed for @{TARGET_HANDLE}...", flush=True)
+            print(f"Checking feed for @{TARGET_HANDLE}...", flush=True)
             feed = feedparser.parse(RSS_FEED_URL)
-            
-            if feed.entries:
-                latest = feed.entries[0]
-                tweet_id = latest.link.split('/')[-1]
-                
-                print(f"Latest post found: {latest.link}", flush=True)
-                
-                if tweet_id not in seen_tweet_ids:
-                    if seen_tweet_ids:  # Trigger on new posts
-                        tweet_url = f"https://x.com/{TARGET_HANDLE}/status/{tweet_id}"
-                        print(f"Posting to Discord: {tweet_url}", flush=True)
-                        requests.post(WEBHOOK_URL, json={"content": tweet_url})
-                    seen_tweet_ids.add(tweet_id)
+
+            if not feed.entries:
+                print("No entries found. Status:", getattr(feed, "status", "n/a"),
+                      "| Error:", feed.get("bozo_exception"), flush=True)
             else:
-                print("No feed entries found. Check feed URL...", flush=True)
+                # oldest first so tweets post in order
+                for entry in reversed(feed.entries):
+                    tweet_id = entry.link.split("/")[-1].split("?")[0]
+                    if tweet_id in seen:
+                        continue
+                    seen.add(tweet_id)
+                    if not first_run:
+                        url = f"https://x.com/{TARGET_HANDLE}/status/{tweet_id}"
+                        print("Posting:", url, flush=True)
+                        requests.post(WEBHOOK_URL, json={"content": url}, timeout=10)
+                first_run = False
 
         except Exception as e:
-            print(f"Error checking feed: {e}", flush=True)
-            
+            print(f"Error: {e}", flush=True)
+
         time.sleep(60)
 
 if __name__ == "__main__":
