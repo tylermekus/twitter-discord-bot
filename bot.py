@@ -1,31 +1,19 @@
-import asyncio, requests, threading
-from datetime import datetime
+import time, requests, threading, feedparser
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from twikit import Client
 
 WEBHOOK_URL = "https://discord.com/api/webhooks/1555668009085837454/n4MSvBnRQOq5RuzsItVaPp4sPKtq0NtkTNO6NYN8d2KDQ9W3-qasSu2_zkPz-IyjkR7J"
-TARGET_HANDLE = "IGN"  # Change back to CoCVouchers once verified
+TARGET_HANDLE = "IGN"  # Switch to CoCVouchers once verified
 
-# PASTE YOUR COOKIES HERE
-AUTH_TOKEN = "5a8c282b8daf3eef378fb05fccd1d7a07697c06a"
-CT0 = "636bceb706e145e913aa85fc0b6fa24680707faa65e327bfb4f958c604434f2c93b7915e9186bbfd67bd9771a1d4cd1f7fbcddfa4d345f24a295bf5a61eb62e3a964065e9b73bf64d6d09c131849561f"
-
+# Health check server for Render
 class HealthCheckHandler(BaseHTTPRequestHandler):
-    def handle_http(self):
+    def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-type", "text/html")
         self.end_headers()
         self.wfile.write(b"Bot is active")
-
-    def do_GET(self):
-        self.handle_http()
 
     def do_HEAD(self):
         self.send_response(200)
         self.end_headers()
-
-    def do_POST(self):
-        self.handle_http()
 
     def log_message(self, format, *args):
         return
@@ -36,52 +24,36 @@ def run_web_server():
 
 threading.Thread(target=run_web_server, daemon=True).start()
 
-client = Client('en-US')
 seen_tweet_ids = set()
 
-async def main():
-    print(f"[{datetime.now()}] Bot starting up with cookie auth...", flush=True)
-    
-    # Authenticate client with cookies
-    client.set_cookies({
-        'auth_token': AUTH_TOKEN,
-        'ct0': CT0
-    })
-
-    user_id = None
+def main():
+    print("Bot started using RSS bridge...", flush=True)
+    rss_url = f"https://nitter.net/{TARGET_HANDLE}/rss"
     
     while True:
-        timestamp = datetime.now().strftime("%H:%M:%S")
         try:
-            print(f"[{timestamp}] Checking X for target: {TARGET_HANDLE}...", flush=True)
+            print(f"Checking RSS feed for @{TARGET_HANDLE}...", flush=True)
+            feed = feedparser.parse(rss_url)
             
-            if not user_id:
-                user = await asyncio.wait_for(client.get_user_by_screen_name(TARGET_HANDLE), timeout=15)
-                user_id = user.id
-                print(f"[{timestamp}] Target acquired: {TARGET_HANDLE} (ID: {user_id})", flush=True)
-
-            tweets = await asyncio.wait_for(client.get_user_tweets(user_id, 'Tweets'), timeout=15)
-            if tweets:
-                latest = tweets[0]
-                print(f"[{timestamp}] Fetched latest tweet ID: {latest.id}", flush=True)
+            if feed.entries:
+                latest = feed.entries[0]
+                tweet_id = latest.link.split('/')[-1]
                 
-                if latest.id not in seen_tweet_ids:
-                    tweet_url = f"https://x.com/{TARGET_HANDLE}/status/{latest.id}"
-                    print(f"[{timestamp}] Posting new tweet to Discord: {tweet_url}", flush=True)
-                    
-                    res = requests.post(WEBHOOK_URL, json={"content": tweet_url})
-                    print(f"[{timestamp}] Webhook response status: {res.status_code}", flush=True)
-                    
-                    seen_tweet_ids.add(latest.id)
+                print(f"Latest tweet found: {latest.link}", flush=True)
+                
+                if tweet_id not in seen_tweet_ids:
+                    if seen_tweet_ids:  # Send post when a new tweet arrives
+                        tweet_url = f"https://x.com/{TARGET_HANDLE}/status/{tweet_id}"
+                        print(f"Posting to Discord: {tweet_url}", flush=True)
+                        requests.post(WEBHOOK_URL, json={"content": tweet_url})
+                    seen_tweet_ids.add(tweet_id)
             else:
-                print(f"[{timestamp}] No tweets returned for user ID {user_id}", flush=True)
+                print("No feed entries found. Retrying...", flush=True)
 
-        except asyncio.TimeoutError:
-            print(f"[{timestamp}] Request to X timed out. Retrying next cycle...", flush=True)
         except Exception as e:
-            print(f"[{timestamp}] Error during check cycle: {type(e).__name__} - {e}", flush=True)
+            print(f"Error checking feed: {e}", flush=True)
             
-        await asyncio.sleep(60)
+        time.sleep(60)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
